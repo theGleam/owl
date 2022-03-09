@@ -54,11 +54,15 @@ function makeHelpers(getTemplate: (name: string) => Template): any {
   });
 }
 
+const sharedTemplates: Map<Function | undefined, { [key: string]: { [name: string]: Template } }> =
+  new Map();
+
 export interface TemplateSetConfig {
   dev?: boolean;
   translatableAttributes?: string[];
   translateFn?: (s: string) => string;
   templates?: string | Document;
+  shareTemplates?: boolean;
 }
 
 export class TemplateSet {
@@ -71,6 +75,20 @@ export class TemplateSet {
 
   constructor(config: TemplateSetConfig = {}) {
     this.dev = config.dev || false;
+    if (config.shareTemplates) {
+      let cache = sharedTemplates.get(this.translateFn);
+      if (!cache) {
+        cache = {};
+        sharedTemplates.set(this.translateFn, cache);
+      }
+      let key = `${this.dev ? "d" : "p"}${(this.translatableAttributes || []).toString()}`;
+      let templates = cache[key];
+      if (!templates) {
+        cache[key] = {};
+        templates = cache[key];
+      }
+      this.templates = templates;
+    }
     this.translateFn = config.translateFn;
     this.translatableAttributes = config.translatableAttributes;
     if (config.templates) {
