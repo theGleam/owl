@@ -3696,6 +3696,42 @@ test("another scenario with delayed rendering", async () => {
   ]).toBeLogged();
 });
 
+test("delayed fiber does not get rendered if it was cancelled", async () => {
+  class D extends Component {
+    static template = xml`D`;
+  }
+
+  class C extends Component {
+    static template = xml`C<D/>`;
+    static components = { D };
+    setup() {
+      c = this;
+    }
+  }
+  let c: C;
+
+  class B extends Component {
+    static template = xml`B<C/>`;
+    static components = { C };
+  }
+
+  class A extends Component {
+    static template = xml`A<B/>`;
+    static components = { B };
+  }
+
+  const a = await mount(A, fixture);
+  expect(fixture.innerHTML).toBe("ABCD");
+  // Start a render in C
+  c!.render(true);
+  await nextMicroTick();
+  // Start a render in A such that C is already rendered, but D will be delayed
+  // (because A is rendering) then cancelled (when the render from A reaches C)
+  a.render(true);
+  // Make sure the render can go to completion (Cancelled fibers will throw when rendered)
+  await nextTick();
+});
+
 test("destroyed component causes other soon to be destroyed component to rerender, weird stuff happens", async () => {
   let def = makeDeferred();
   let c: any = null;
